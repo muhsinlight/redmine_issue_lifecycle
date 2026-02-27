@@ -1,0 +1,8 @@
+en:
+  label_lifecycle: "Issue Lifecycle"
+  label_status_changes: "Status Changes"
+  label_time_in_status: "Time in Status"
+  label_total_time: "Total Time"
+  label_category_summary: "Summary by Category"
+  label_user_summary: "Summary by User"
+  label_issue_count: "Issue Count"

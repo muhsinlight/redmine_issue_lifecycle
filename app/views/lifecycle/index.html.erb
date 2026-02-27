@@ -1,0 +1,168 @@
+<%= title [@project, l(:label_lifecycle)] %>
+
+<div class="contextual">
+  <%= link_to l(:label_issue_view_all), project_issues_path(@project), class: 'icon icon-issue' %>
+</div>
+
+<h2><%= l(:label_lifecycle) %></h2>
+
+<p>
+  <strong><%= l(:label_project) %>:</strong>
+  <%= link_to @project.name, project_path(@project) %>
+</p>
+
+<h3><%= l(:label_lifecycle) %> – <%= l(:label_time_in_status) %></h3>
+
+<p><%= l(:label_lifecycle_description) rescue '' %></p>
+
+<% if @rows.any? %>
+  <table class="list issues">
+    <thead>
+      <tr>
+        <th>
+          <%= link_to '#',
+                      project_lifecycle_path(@project, :sort => 'issue_id', :direction => params[:direction] == 'asc' ? 'desc' : 'asc'),
+                      :class => "sort #{(params[:sort] || 'issue_id') == 'issue_id' ? "sort-#{params[:direction] || 'asc'}" : ''}" %>
+        </th>
+        <th>
+          <%= link_to l(:field_subject),
+                      project_lifecycle_path(@project, :sort => 'subject', :direction => params[:direction] == 'asc' ? 'desc' : 'asc'),
+                      :class => "sort #{params[:sort] == 'subject' ? "sort-#{params[:direction] || 'asc'}" : ''}" %>
+        </th>
+        <th><%= l(:field_status) %></th>
+        <th>
+          <%= link_to l(:field_category),
+                      project_lifecycle_path(@project, :sort => 'category', :direction => params[:direction] == 'asc' ? 'desc' : 'asc'),
+                      :class => "sort #{params[:sort] == 'category' ? "sort-#{params[:direction] || 'asc'}" : ''}" %>
+        </th>
+        <th>
+          <%= link_to l(:field_user),
+                      project_lifecycle_path(@project, :sort => 'user', :direction => params[:direction] == 'asc' ? 'desc' : 'asc'),
+                      :class => "sort #{params[:sort] == 'user' ? "sort-#{params[:direction] || 'asc'}" : ''}" %>
+        </th>
+        <th><%= l(:label_started_on) %></th>
+        <th><%= l(:label_ended_on) %></th>
+        <th class="center">
+          <%= link_to l(:label_total_time),
+                      project_lifecycle_path(@project, :sort => 'total_time', :direction => params[:direction] == 'asc' ? 'desc' : 'asc'),
+                      :class => "sort #{params[:sort] == 'total_time' ? "sort-#{params[:direction] || 'asc'}" : ''}" %>
+        </th>
+        <th class="center"><%= l(:label_time_in_status) %></th>
+      </tr>
+    </thead>
+    <tbody>
+      <% @rows.each do |row| %>
+        <% issue = row[:issue] %>
+        <tr class="<%= cycle('odd', 'even') %> issue">
+          <td class="id">
+            <%= link_to "##{issue.id}", issue_path(issue) %>
+          </td>
+          <td class="subject">
+            <%= link_to h(issue.subject), issue_path(issue) %>
+          </td>
+          <td class="status">
+            <%= h(row[:status]&.name) %>
+          </td>
+          <td class="category">
+            <%= h(row[:category]&.name) %>
+          </td>
+          <td class="user">
+            <%= h(row[:user]&.name) %>
+          </td>
+          <td>
+            <%= format_time(row[:from]) if row[:from] %>
+          </td>
+          <td>
+            <%= format_time(row[:to]) if row[:to] %>
+          </td>
+          <td class="center">
+            <% total_seconds = row[:total_time].to_i %>
+            <%= distance_of_time_in_words(Time.current, Time.current - total_seconds) if total_seconds > 0 %>
+          </td>
+          <td class="center">
+            <% seconds = row[:duration].to_i %>
+            <%= distance_of_time_in_words(Time.current, Time.current - seconds) if seconds > 0 %>
+          </td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+<% else %>
+  <p><em><%= l(:label_no_data) %></em></p>
+<% end %>
+
+<% if @category_totals.any? %>
+  <h3><%= l(:label_lifecycle_by_category) %></h3>
+  <div class="autoscroll">
+    <table class="list">
+      <thead>
+        <tr>
+          <th><%= l(:field_category) %></th>
+          <th class="center"><%= l(:label_total_time) %></th>
+          <th class="center"><%= l(:label_percent) %></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% @category_totals.each_with_index do |row, idx| %>
+          <% color = %w(#4caf50 #2196f3 #ff9800 #f44336 #9c27b0 #009688 #795548)[idx % 7] %>
+          <tr class="<%= cycle('odd', 'even') %>">
+            <td>
+              <span style="display:inline-block;width:10px;height:10px;background-color:<%= color %>;margin-right:4px;border-radius:2px;"></span>
+              <%= h(row[:name]) %>
+            </td>
+            <td>
+              <% seconds = row[:seconds].to_i %>
+              <div style="border:1px solid #ddd; background:#f5f5f5; height:14px; border-radius:3px; overflow:hidden; max-width:260px;">
+                <div style="background-color:<%= color %>; width:<%= row[:percent] %>%; height:100%;"></div>
+              </div>
+              <div style="font-size:0.85em; color:#555; margin-top:2px;">
+                <%= distance_of_time_in_words(Time.current, Time.current - seconds) if seconds > 0 %>
+              </div>
+            </td>
+            <td class="center">
+              <%= number_to_percentage(row[:percent], precision: 1) %>
+            </td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+<% end %>
+
+<% if @user_totals.any? %>
+  <h3><%= l(:label_lifecycle_by_user) %></h3>
+  <div class="autoscroll">
+    <table class="list">
+      <thead>
+        <tr>
+          <th><%= l(:field_user) %></th>
+          <th class="center"><%= l(:label_total_time) %></th>
+          <th class="center"><%= l(:label_percent) %></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% @user_totals.each_with_index do |row, idx| %>
+          <% color = %w(#4caf50 #2196f3 #ff9800 #f44336 #9c27b0 #009688 #795548)[idx % 7] %>
+          <tr class="<%= cycle('odd', 'even') %>">
+            <td>
+              <span style="display:inline-block;width:10px;height:10px;background-color:<%= color %>;margin-right:4px;border-radius:2px;"></span>
+              <%= h(row[:name]) %>
+            </td>
+            <td>
+              <% seconds = row[:seconds].to_i %>
+              <div style="border:1px solid #ddd; background:#f5f5f5; height:14px; border-radius:3px; overflow:hidden; max-width:260px;">
+                <div style="background-color:<%= color %>; width:<%= row[:percent] %>%; height:100%;"></div>
+              </div>
+              <div style="font-size:0.85em; color:#555; margin-top:2px;">
+                <%= distance_of_time_in_words(Time.current, Time.current - seconds) if seconds > 0 %>
+              </div>
+            </td>
+            <td class="center">
+              <%= number_to_percentage(row[:percent], precision: 1) %>
+            </td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+<% end %>
