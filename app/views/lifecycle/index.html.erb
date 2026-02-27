@@ -1,4 +1,96 @@
+<% content_for :header_tags do %>
+  <style>
+    /* Yan Panel (Slide-in Drawer) Tasarımı */
+    #lifecycle-drawer {
+      position: fixed; top: 0; right: -500px; width: 450px; height: 100%;
+      background: #fff; box-shadow: -2px 0 15px rgba(0,0,0,0.2);
+      transition: right 0.3s ease-in-out; z-index: 1000;
+      padding: 20px; overflow-y: auto; border-left: 5px solid #2196f3;
+    }
+    #lifecycle-drawer.open { right: 0; }
+    #lifecycle-drawer-overlay {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.4); display: none; z-index: 999;
+    }
+    #lifecycle-drawer-content { margin-top: 20px; }
+    .drawer-close {
+      position: absolute; top: 15px; right: 15px; font-size: 24px;
+      text-decoration: none; color: #666; font-weight: bold;
+    }
+    .drawer-close:hover { color: #f44336; }
+    .loading-spinner { text-align: center; padding: 50px; color: #2196f3; font-weight: bold; }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    function showLifecycleDetail(issueId) {
+      // ... (önceki fonksiyon içeriği aynı kalacak, sadece sonuna Chart.js yüklemesi gerekirse eklenecek)
+      const drawer = document.getElementById('lifecycle-drawer');
+      const overlay = document.getElementById('lifecycle-drawer-overlay');
+      const content = document.getElementById('lifecycle-drawer-content');
+      
+      content.innerHTML = '<div class="loading-spinner">Yükleniyor...</div>';
+      drawer.classList.add('open');
+      overlay.style.display = 'block';
+
+      fetch(`<%= project_lifecycle_path(@project) %>/${issueId}`)
+        .then(response => response.text())
+        .then(html => {
+          content.innerHTML = html;
+        });
+    }
+
+    // Dashboard Grafikleri
+    window.addEventListener('load', function() {
+      // Kategori Grafiği
+      const categoryData = <%= @category_totals.to_json.html_safe %>;
+      if (categoryData.length > 0) {
+        new Chart(document.getElementById('categoryChart'), {
+          type: 'doughnut',
+          data: {
+            labels: categoryData.map(i => i.name),
+            datasets: [{
+              data: categoryData.map(i => i.percent),
+              backgroundColor: ['#4caf50', '#2196f3', '#ff9800', '#f44336', '#9c27b0', '#009688', '#795548']
+            }]
+          },
+          options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+        });
+      }
+
+      // Kullanıcı Grafiği
+      const userData = <%= @user_totals.to_json.html_safe %>;
+      if (userData.length > 0) {
+        new Chart(document.getElementById('userChart'), {
+          type: 'bar',
+          data: {
+            labels: userData.map(i => i.name),
+            datasets: [{
+              label: 'Toplam Süre (%)',
+              data: userData.map(i => i.percent),
+              backgroundColor: '#2196f3'
+            }]
+          },
+          options: { scales: { y: { beginAtZero: true, max: 100 } } }
+        });
+      }
+    });
+
+    function closeDrawer() {
+      document.getElementById('lifecycle-drawer').classList.remove('open');
+      document.getElementById('lifecycle-drawer-overlay').style.display = 'none';
+    }
+  </script>
+<% end %>
+
 <%= title [@project, l(:label_lifecycle)] %>
+
+<!-- Yan Panel HTML -->
+<div id="lifecycle-drawer-overlay" onclick="closeDrawer()"></div>
+<div id="lifecycle-drawer">
+  <a href="#" class="drawer-close" onclick="closeDrawer()">&times;</a>
+  <h2>İş Analizi</h2>
+  <div id="lifecycle-drawer-content"></div>
+</div>
 
 <div class="contextual">
   <%= link_to l(:label_issue_view_all), project_issues_path(@project), class: 'icon icon-issue' %>
@@ -47,7 +139,11 @@
                       project_lifecycle_path(@project, :sort => 'total_time', :direction => params[:direction] == 'asc' ? 'desc' : 'asc'),
                       :class => "sort #{params[:sort] == 'total_time' ? "sort-#{params[:direction] || 'asc'}" : ''}" %>
         </th>
-        <th class="center"><%= l(:label_time_in_status) %></th>
+        <th class="center">
+          <%= link_to l(:label_time_in_status),
+                      project_lifecycle_path(@project, :sort => 'duration', :direction => params[:direction] == 'asc' ? 'desc' : 'asc'),
+                      :class => "sort #{params[:sort] == 'duration' ? "sort-#{params[:direction] || 'asc'}" : ''}" %>
+        </th>
       </tr>
     </thead>
     <tbody>
@@ -55,10 +151,10 @@
         <% issue = row[:issue] %>
         <tr class="<%= cycle('odd', 'even') %> issue">
           <td class="id">
-            <%= link_to "##{issue.id}", issue_path(issue) %>
+            <%= link_to "##{issue.id}", "javascript:void(0)", onclick: "showLifecycleDetail(#{issue.id})", title: "Detayları Panelde Aç" %>
           </td>
           <td class="subject">
-            <%= link_to h(issue.subject), issue_path(issue) %>
+            <%= link_to h(issue.subject), "javascript:void(0)", onclick: "showLifecycleDetail(#{issue.id})", title: "Detayları Panelde Aç" %>
           </td>
           <td class="status">
             <%= h(row[:status]&.name) %>
@@ -87,82 +183,91 @@
       <% end %>
     </tbody>
   </table>
+  <span class="pagination"><%= pagination_links_full @issue_pages, @issue_count %></span>
 <% else %>
   <p><em><%= l(:label_no_data) %></em></p>
 <% end %>
 
-<% if @category_totals.any? %>
-  <h3><%= l(:label_lifecycle_by_category) %></h3>
-  <div class="autoscroll">
-    <table class="list">
-      <thead>
-        <tr>
-          <th><%= l(:field_category) %></th>
-          <th class="center"><%= l(:label_total_time) %></th>
-          <th class="center"><%= l(:label_percent) %></th>
-        </tr>
-      </thead>
-      <tbody>
-        <% @category_totals.each_with_index do |row, idx| %>
-          <% color = %w(#4caf50 #2196f3 #ff9800 #f44336 #9c27b0 #009688 #795548)[idx % 7] %>
-          <tr class="<%= cycle('odd', 'even') %>">
-            <td>
-              <span style="display:inline-block;width:10px;height:10px;background-color:<%= color %>;margin-right:4px;border-radius:2px;"></span>
-              <%= h(row[:name]) %>
-            </td>
-            <td>
-              <% seconds = row[:seconds].to_i %>
-              <div style="border:1px solid #ddd; background:#f5f5f5; height:14px; border-radius:3px; overflow:hidden; max-width:260px;">
-                <div style="background-color:<%= color %>; width:<%= row[:percent] %>%; height:100%;"></div>
-              </div>
-              <div style="font-size:0.85em; color:#555; margin-top:2px;">
-                <%= distance_of_time_in_words(Time.current, Time.current - seconds) if seconds > 0 %>
-              </div>
-            </td>
-            <td class="center">
-              <%= number_to_percentage(row[:percent], precision: 1) %>
-            </td>
-          </tr>
-        <% end %>
-      </tbody>
-    </table>
-  </div>
-<% end %>
+<div class="splitcontent" style="display: flex; flex-wrap: wrap; gap: 20px; margin-top: 30px;">
+  
+  <% if @category_totals.any? %>
+    <div class="splitcontentleft" style="flex: 1; min-width: 300px; padding: 15px; background: #fff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+      <h3><%= l(:label_lifecycle_by_category) %></h3>
+      <div style="margin-bottom: 20px;">
+        <canvas id="categoryChart" style="max-height: 250px;"></canvas>
+      </div>
+      <div class="autoscroll">
+        <table class="list">
+          <thead>
+            <tr>
+              <th><%= l(:field_category) %></th>
+              <th class="center"><%= l(:label_total_time) %></th>
+              <th class="center"><%= l(:label_percent) %></th>
+            </tr>
+          </thead>
+          <tbody>
+            <% @category_totals.each_with_index do |row, idx| %>
+              <% color = %w(#4caf50 #2196f3 #ff9800 #f44336 #9c27b0 #009688 #795548)[idx % 7] %>
+              <tr class="<%= cycle('odd', 'even') %>">
+                <td>
+                  <span style="display:inline-block;width:10px;height:10px;background-color:<%= color %>;margin-right:4px;border-radius:2px;"></span>
+                  <%= h(row[:name]) %>
+                </td>
+                <td>
+                  <% seconds = row[:seconds].to_i %>
+                  <div style="font-size:0.85em; color:#555;">
+                    <%= distance_of_time_in_words(Time.current, Time.current - seconds) if seconds > 0 %>
+                  </div>
+                </td>
+                <td class="center">
+                  <strong><%= number_to_percentage(row[:percent], precision: 1) %></strong>
+                </td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  <% end %>
 
-<% if @user_totals.any? %>
-  <h3><%= l(:label_lifecycle_by_user) %></h3>
-  <div class="autoscroll">
-    <table class="list">
-      <thead>
-        <tr>
-          <th><%= l(:field_user) %></th>
-          <th class="center"><%= l(:label_total_time) %></th>
-          <th class="center"><%= l(:label_percent) %></th>
-        </tr>
-      </thead>
-      <tbody>
-        <% @user_totals.each_with_index do |row, idx| %>
-          <% color = %w(#4caf50 #2196f3 #ff9800 #f44336 #9c27b0 #009688 #795548)[idx % 7] %>
-          <tr class="<%= cycle('odd', 'even') %>">
-            <td>
-              <span style="display:inline-block;width:10px;height:10px;background-color:<%= color %>;margin-right:4px;border-radius:2px;"></span>
-              <%= h(row[:name]) %>
-            </td>
-            <td>
-              <% seconds = row[:seconds].to_i %>
-              <div style="border:1px solid #ddd; background:#f5f5f5; height:14px; border-radius:3px; overflow:hidden; max-width:260px;">
-                <div style="background-color:<%= color %>; width:<%= row[:percent] %>%; height:100%;"></div>
-              </div>
-              <div style="font-size:0.85em; color:#555; margin-top:2px;">
-                <%= distance_of_time_in_words(Time.current, Time.current - seconds) if seconds > 0 %>
-              </div>
-            </td>
-            <td class="center">
-              <%= number_to_percentage(row[:percent], precision: 1) %>
-            </td>
-          </tr>
-        <% end %>
-      </tbody>
-    </table>
-  </div>
-<% end %>
+  <% if @user_totals.any? %>
+    <div class="splitcontentright" style="flex: 1; min-width: 300px; padding: 15px; background: #fff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+      <h3><%= l(:label_lifecycle_by_user) %></h3>
+      <div style="margin-bottom: 20px;">
+        <canvas id="userChart" style="max-height: 250px;"></canvas>
+      </div>
+      <div class="autoscroll">
+        <table class="list">
+          <thead>
+            <tr>
+              <th><%= l(:field_user) %></th>
+              <th class="center"><%= l(:label_total_time) %></th>
+              <th class="center"><%= l(:label_percent) %></th>
+            </tr>
+          </thead>
+          <tbody>
+            <% @user_totals.each_with_index do |row, idx| %>
+              <% color = %w(#4caf50 #2196f3 #ff9800 #f44336 #9c27b0 #009688 #795548)[idx % 7] %>
+              <tr class="<%= cycle('odd', 'even') %>">
+                <td>
+                  <span style="display:inline-block;width:10px;height:10px;background-color:<%= color %>;margin-right:4px;border-radius:2px;"></span>
+                  <%= h(row[:name]) %>
+                </td>
+                <td>
+                  <% seconds = row[:seconds].to_i %>
+                  <div style="font-size:0.85em; color:#555;">
+                    <%= distance_of_time_in_words(Time.current, Time.current - seconds) if seconds > 0 %>
+                  </div>
+                </td>
+                <td class="center">
+                  <strong><%= number_to_percentage(row[:percent], precision: 1) %></strong>
+                </td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  <% end %>
+
+</div>

@@ -10,7 +10,7 @@ Redmine::Plugin.register :redmine_issue_lifecycle do
 
 
   project_module :issue_lifecycle do
-    permission :view_issue_lifecycle, { :lifecycle => [:index] }, :require => :member
+    permission :view_issue_lifecycle, { :lifecycle => [:index, :show] }, :require => :member
   end
 
   menu :project_menu, :lifecycle, { :controller => 'lifecycle', :action => 'index' },
