@@ -1,11 +1,11 @@
- # frozen_string_literal: true
+# frozen_string_literal: true
 
- class LifecycleController < ApplicationController
-   layout 'base'
-   menu_item :lifecycle
+class LifecycleController < ApplicationController
+  layout 'base'
+  menu_item :lifecycle
 
-   before_action :find_project
-   before_action :authorize
+  before_action :find_project
+  before_action :authorize
 
   helper :issues
 
@@ -37,11 +37,25 @@
     end
 
     calculate_project_totals
-
     sort_rows
   end
 
+  def show
+    @issue = @project.issues.find(params[:id])
+    render partial: 'issue_lifecycle/issue_panel', locals: { issue: @issue }
+  end
+
   private
+
+  def find_project
+    @project = Project.find(params[:project_id])
+  rescue ActiveRecord::RecordNotFound
+    render_404
+  end
+
+  def authorize
+    render_403 unless User.current.allowed_to?(:view_issue_lifecycle, @project)
+  end
 
   def calculate_project_totals
     @category_totals_hash = Hash.new(0)
@@ -78,33 +92,16 @@
     @rows.reverse! if sort_direction == 'desc'
   end
 
-  def show
-    @issue = @project.issues.find(params[:id])
-    render partial: 'issue_lifecycle/issue_panel', locals: { issue: @issue }
+  def normalize_totals(hash)
+    total = hash.values.sum.to_f
+    return [] if total <= 0
+
+    hash.map do |name, seconds|
+      {
+        name: name,
+        seconds: seconds,
+        percent: ((seconds.to_f / total) * 100.0).round(1)
+      }
+    end.sort_by { |h| -h[:seconds] }
   end
-
-  private
-
-   def find_project
-     @project = Project.find(params[:project_id])
-   rescue ActiveRecord::RecordNotFound
-     render_404
-   end
-
-   def authorize
-     render_403 unless User.current.allowed_to?(:view_issue_lifecycle, @project)
-   end
-
-   def normalize_totals(hash)
-     total = hash.values.sum.to_f
-     return [] if total <= 0
-
-     hash.map do |name, seconds|
-       {
-         name: name,
-         seconds: seconds,
-         percent: ((seconds.to_f / total) * 100.0).round(1)
-       }
-     end.sort_by { |h| -h[:seconds] }
-   end
- end
+end

@@ -8,7 +8,6 @@ Redmine::Plugin.register :redmine_issue_lifecycle do
   url ''
   author_url ''
 
-
   project_module :issue_lifecycle do
     permission :view_issue_lifecycle, { :lifecycle => [:index, :show] }, :require => :member
   end
