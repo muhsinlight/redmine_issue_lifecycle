@@ -23,7 +23,6 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script>
     function showLifecycleDetail(issueId) {
-      // ... (önceki fonksiyon içeriği aynı kalacak, sadece sonuna Chart.js yüklemesi gerekirse eklenecek)
       const drawer = document.getElementById('lifecycle-drawer');
       const overlay = document.getElementById('lifecycle-drawer-overlay');
       const content = document.getElementById('lifecycle-drawer-content');
@@ -39,9 +38,7 @@
         });
     }
 
-    // Dashboard Grafikleri
     window.addEventListener('load', function() {
-      // Kategori Grafiği
       const categoryData = <%= @category_totals.to_json.html_safe %>;
       if (categoryData.length > 0) {
         new Chart(document.getElementById('categoryChart'), {
@@ -56,8 +53,6 @@
           options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
         });
       }
-
-      // Kullanıcı Grafiği
       const userData = <%= @user_totals.to_json.html_safe %>;
       if (userData.length > 0) {
         new Chart(document.getElementById('userChart'), {
@@ -84,7 +79,6 @@
 
 <%= title [@project, l(:label_lifecycle)] %>
 
-<!-- Yan Panel HTML -->
 <div id="lifecycle-drawer-overlay" onclick="closeDrawer()"></div>
 <div id="lifecycle-drawer">
   <a href="#" class="drawer-close" onclick="closeDrawer()">&times;</a>
